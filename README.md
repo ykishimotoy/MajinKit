@@ -10,7 +10,7 @@ python Majin.py
 ※AI動画の作り方ノウハウはこちらの記事をご参照ください。<br>
 https://zenn.dev/acntechjp/articles/0f53e090b62657<br><br>
 
-※大きい動画ファイル（normal.mp4, sleep.mp4）は載らなかったので、YouTubeにサンプルを上げてあります。
+※大きい動画ファイル（normal.mp4, sleep.mp4）は全編が載らなかったので、こちらは短い版のサンプル、全編はYouTubeにサンプルを上げてあります。
 - https://www.youtube.com/watch?v=HvJ0YzQJD6A
 - https://www.youtube.com/watch?v=5ToteBW86rs
 
