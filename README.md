@@ -3,9 +3,12 @@
 
 ※AI動画の作り方ノウハウはこちらの記事をご参照ください。<br>
 https://zenn.dev/acntechjp/articles/0f53e090b62657<br><br>
+
 ※大きい動画ファイル（normal.mp4, sleep.mp4）は載らなかったので、YouTubeにサンプルを上げてあります。
 - https://www.youtube.com/watch?v=HvJ0YzQJD6A
 - https://www.youtube.com/watch?v=5ToteBW86rs
+
+※動画間の切り替わりに若干タイムラグがあるので、fehというソフトで全画面表示の画像を表示してからプログラム起動すると良いです。<br>
 
 # Majin PIR Interactive Player (Raspberry Pi)
 
@@ -109,7 +112,7 @@ https://zenn.dev/acntechjp/articles/0f53e090b62657<br><br>
 
 Raspberry Pi OSには通常入っている。
 
-    python3 --version
+    python --version
 
 ---
 
@@ -131,7 +134,7 @@ GPIO操作ライブラリ。
 通常Raspberry Pi OSには入っているが  
 なければ以下。
 
-    pip3 install RPi.GPIO
+    pip install RPi.GPIO
 
 ---
 
@@ -159,250 +162,11 @@ GPIO操作ライブラリ。
 PIRセンサーの挙動確認用。  
 動画再生なし。
 
-```python
-import RPi.GPIO as GPIO
-import time
-from collections import deque
-
-GPIO.setmode(GPIO.BCM)
-
-PIR_PIN = 7
-GPIO.setup(PIR_PIN, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
-
-ENTRY_INTERVAL = 0.5
-ENTRY_WINDOW = 20
-ENTRY_THRESHOLD = 4
-
-CHECK_INTERVAL = 2
-NO_MOTION_LIMIT = 14
-
-state = 0
-
-entry_samples = deque(maxlen=ENTRY_WINDOW)
-no_motion_count = 0
-
-last_entry_check = time.time()
-last_check = time.time()
-
-print("PIR warming up (10 seconds)")
-time.sleep(10)
-print("Ready")
-
-try:
-
-    while True:
-
-        now = time.time()
-        pir = GPIO.input(PIR_PIN)
-
-        if state == 0:
-
-            if now - last_entry_check >= ENTRY_INTERVAL:
-
-                last_entry_check = now
-                entry_samples.append(pir)
-
-                high_count = sum(entry_samples)
-
-                print(f"STATE0 HIGH count = {high_count}/4")
-
-                if high_count >= ENTRY_THRESHOLD:
-                    print("Entry confirmed → STATE1")
-                    entry_samples.clear()
-                    state = 1
-
-        elif state == 1:
-
-            print("STATE1 normal start → STATE2")
-
-            no_motion_count = 0
-            last_check = time.time()
-            state = 2
-
-        elif state == 2:
-
-            if now - last_check >= CHECK_INTERVAL:
-
-                last_check = now
-
-                if pir:
-                    no_motion_count = 0
-                    print("STATE2 motion detected → reset counter")
-                else:
-                    no_motion_count += 1
-                    print(f"STATE2 no motion ({no_motion_count}/14)")
-
-                if no_motion_count >= NO_MOTION_LIMIT:
-                    print("No motion 14 times → STATE3")
-                    state = 3
-
-        elif state == 3:
-
-            print("STATE3 shift → STATE0")
-
-            entry_samples.clear()
-            no_motion_count = 0
-
-            time.sleep(2)
-            state = 0
-
-        time.sleep(0.05)
-
-except KeyboardInterrupt:
-
-    GPIO.cleanup()
-    print("Quit")
-```
-
 ---
 
 # 本番用コード
 
 動画再生付き。
-
-```python
-import RPi.GPIO as GPIO
-import time
-import subprocess
-import os
-from collections import deque
-
-GPIO.setmode(GPIO.BCM)
-
-PIR_PIN = 7
-GPIO.setup(PIR_PIN, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
-
-BASE = os.path.dirname(os.path.abspath(__file__))
-
-SLEEP_VIDEO = os.path.join(BASE, "sleep.mp4")
-NORMAL_VIDEO = os.path.join(BASE, "normal.mp4")
-SHIFT_VIDEO = os.path.join(BASE, "shift.mp4")
-
-MPV_CMD = [
-    "mpv",
-    "--fs",
-    "--no-osd-bar",
-    "--really-quiet",
-    "--hwdec=auto-safe",
-    "--vo=gpu",
-    "--gpu-context=x11egl"
-]
-
-ENTRY_INTERVAL = 0.5
-ENTRY_WINDOW = 20
-ENTRY_THRESHOLD = 4
-
-CHECK_INTERVAL = 2
-NO_MOTION_LIMIT = 14
-
-state = 0
-
-entry_samples = deque(maxlen=ENTRY_WINDOW)
-no_motion_count = 0
-
-last_entry_check = time.time()
-last_check = time.time()
-
-player = None
-
-
-def play(video, loop=False):
-    global player
-
-    stop()
-
-    cmd = MPV_CMD.copy()
-
-    if loop:
-        cmd.append("--loop")
-
-    cmd.append(video)
-
-    env = os.environ.copy()
-    env["DISPLAY"] = ":0"
-
-    player = subprocess.Popen(cmd, env=env)
-
-
-def stop():
-    global player
-
-    if player and player.poll() is None:
-        player.terminate()
-        player.wait()
-
-    player = None
-
-
-print("PIR warming up (10 seconds)")
-time.sleep(10)
-print("Ready")
-
-play(SLEEP_VIDEO, loop=True)
-
-try:
-
-    while True:
-
-        now = time.time()
-        pir = GPIO.input(PIR_PIN)
-
-        if state == 0:
-
-            if now - last_entry_check >= ENTRY_INTERVAL:
-
-                last_entry_check = now
-                entry_samples.append(pir)
-
-                if sum(entry_samples) >= ENTRY_THRESHOLD:
-
-                    entry_samples.clear()
-                    play(NORMAL_VIDEO)
-                    state = 1
-
-        elif state == 1:
-
-            no_motion_count = 0
-            last_check = time.time()
-            state = 2
-
-        elif state == 2:
-
-            if player and player.poll() is not None:
-                state = 3
-
-            elif now - last_check >= CHECK_INTERVAL:
-
-                last_check = now
-
-                if pir:
-                    no_motion_count = 0
-                else:
-                    no_motion_count += 1
-
-                if no_motion_count >= NO_MOTION_LIMIT:
-                    stop()
-                    state = 3
-
-        elif state == 3:
-
-            play(SHIFT_VIDEO)
-            player.wait()
-
-            play(SLEEP_VIDEO, loop=True)
-
-            entry_samples.clear()
-            no_motion_count = 0
-
-            state = 0
-
-        time.sleep(0.05)
-
-except KeyboardInterrupt:
-
-    stop()
-    GPIO.cleanup()
-```
 
 ---
 
@@ -410,6 +174,72 @@ except KeyboardInterrupt:
 
     python MajinTest.py
     python Majin.py
+
+---
+
+# 画像を全画面表示する方法
+
+Raspberry Piで画像を全画面表示するには **feh** を使うのがシンプルで安定している。
+
+## feh のインストール
+
+以下のコマンドでインストールする。
+
+    sudo apt update
+    sudo apt install feh
+
+---
+
+# 画像を全画面表示するコマンド
+
+基本形：
+
+    feh -F image.png
+
+---
+
+## よく使うオプション
+
+    feh -F -x -Y image.png
+
+オプションの意味：
+
+| オプション | 説明 |
+|---|---|
+| -F | フルスクリーン表示 |
+| -x | ウィンドウ装飾（タイトルバーなど）を消す |
+| -Y | マウスカーソルを非表示 |
+
+展示用途ではこの形がよく使われる。
+
+    feh -F -x -Y image.png
+
+---
+
+# Pythonから画像を表示する場合
+
+Pythonスクリプトから起動する場合：
+
+```python
+import subprocess
+
+subprocess.Popen(["feh", "-F", "-x", "-Y", "image.png"])
+```
+
+---
+
+# 表示を閉じる方法
+
+`feh` は以下の方法で閉じられる。
+
+    q キー
+    ESC キー
+
+またはプロセス終了。
+
+```python
+process.terminate()
+```
 
 ---
 
@@ -429,4 +259,4 @@ PIRセンサーは **人の存在ではなく赤外線の変化**を検出する
 
 # License
 
-MIT
+MIT License
