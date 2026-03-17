@@ -5,7 +5,7 @@ python MajinTest.py
 python Majin.py
 ```
 
-※PIR（赤外線センサー）とラズパイの繋ぎ方は、機材ごとに違うと思うので、自分の買った機材を元に検索＆AIで調べてください。<br><br>
+※PIR（赤外線センサー）とラズパイの繋ぎ方は、機材ごとに違うと思うので、自分の買った機材を元に検索＆AIで調べてください。私の事例は画像を参照してください。(raspi.jpg,pir.jpg)<br><br>
 
 ※AI動画の作り方ノウハウはこちらの記事をご参照ください。<br>
 https://zenn.dev/acntechjp/articles/0f53e090b62657<br><br>
