@@ -277,4 +277,5 @@ PIRセンサーは **人の存在ではなく赤外線の変化**を検出する
 
 # License
 
-MIT License
+MIT License / Apache 2.0 License
+ダブルライセンスにしておきます。好きな方で使ってください。
